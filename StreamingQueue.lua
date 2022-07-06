@@ -13,6 +13,7 @@
 	This is necessary when streaming parts as they may not exist when the server wants to make changes.
 	
 	Created by Whincify with contributions from boatbomber, CloneTrooper1019's WindShake module.
+	DevForum Post: https://devforum.roblox.com/t/streamingqueue-queue-changes-to-instances-that-are-affected-by-streamingenabled/1861506
 	
 	v1.0.1
        
