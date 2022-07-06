@@ -9,12 +9,12 @@
 	$$  /   \$$ $$ |  $$ $$$$$$\$$ | \$$ \$$$$$$  $$$$$$\$$ |         $$ |    
 	\__/     \__\__|  \__\______\__|  \__|\______/\______\__|         \__|                                                                      
        
-	StreamingYield waits for an instance to exist on the client before applying changes to it.
+	StreamingQueue waits for an instance to exist on the client before applying changes to it.
 	This is necessary when streaming parts as they may not exist when the server wants to make changes.
 	
 	Created by Whincify with contributions from boatbomber, CloneTrooper1019's WindShake module.
 	
-	v1.0.0
+	v1.0.1
        
 ]]-- 
 
@@ -26,13 +26,13 @@ local StreamingFunction = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild
 
 -----------------------------------------------------------------------------------------------------------------
 
-local StreamingYield = {
+local StreamingQueue = {
 	Connections = {};
 	PlayerYields = {};
 	LastUpdate = os.clock();
 }
 
-function StreamingYield:Connect(funcName: string, event: RBXScriptSignal): RBXScriptConnection
+function StreamingQueue:Connect(funcName: string, event: RBXScriptSignal): RBXScriptConnection
 	local callback = self[funcName]
 	assert(typeof(callback) == "function", "Unknown function: " .. funcName)
 
@@ -41,7 +41,7 @@ function StreamingYield:Connect(funcName: string, event: RBXScriptSignal): RBXSc
 	end)
 end
 
-function StreamingYield:Add(player: Instance, object: Instance, property: String, value)
+function StreamingQueue:Add(player: Instance, object: Instance, property: String, value)
 	local yields = self.PlayerYields[player]["Yields"]
 	local entry = nil
 
@@ -63,7 +63,7 @@ function StreamingYield:Add(player: Instance, object: Instance, property: String
 	end
 end
 
-function StreamingYield:Update()
+function StreamingQueue:Update()
 	local now = os.clock()
 	local dt = (now - self.LastUpdate)
 
@@ -72,12 +72,6 @@ function StreamingYield:Update()
 	end
 
 	self.LastUpdate = now
-
-	if self.Updating then
-		return
-	end
-
-	self.Updating = true
 
 	for i, v in self.PlayerYields do
 		if (not v.Character) then
@@ -91,28 +85,28 @@ function StreamingYield:Update()
 		end
 
 		for a, b in pairs(v.Yields) do
-			local objPos
+			task.spawn(function()
+				local objPos
 
-			if b.Instance:IsA("BasePart") then
-				objPos = b.Instance.Position
-			else
-				objPos = b.Instance:FindFirstAncestorWhichIsA("BasePart").Position
-			end
-
-			if (charPos - objPos).Magnitude < self.Radius then
-				local response = StreamingFunction:InvokeClient(v.Player,b.Instance,b.Property,b.Value)
-
-				if (response == "success") then
-					table.remove(v.Yields,a)
+				if b.Instance:IsA("BasePart") then
+					objPos = b.Instance.Position
+				else
+					objPos = b.Instance:FindFirstAncestorWhichIsA("BasePart").Position
 				end
-			end
+
+				if (charPos - objPos).Magnitude < self.Radius then
+					local response = StreamingFunction:InvokeClient(v.Player,b.Instance,b.Property,b.Value)
+
+					if (response == "success") then
+						table.remove(v.Yields,a)
+					end
+				end
+			end)
 		end
 	end
-	
-	self.Updating = false
 end
 
-function StreamingYield:PlayerAdded(player)
+function StreamingQueue:PlayerAdded(player)
 	if self.PlayerYields[player] then
 		return
 	end
@@ -128,22 +122,22 @@ function StreamingYield:PlayerAdded(player)
 	end)
 end
 
-function StreamingYield:PlayerRemoving(player)
+function StreamingQueue:PlayerRemoving(player)
 	if self.PlayerYields[player] then
 		self.PlayerYields[player] = nil
 	end
 end
 
-function StreamingYield:Init(radius: number, refreshRate: number)
+function StreamingQueue:Init(radius: number, refreshRate: number)
 	if (not self.Initialized) then
 		self.Initialized = true
 		self.Radius = radius or 100
 		self.RefreshRate = refreshRate or 10
 
-		self.Connections["Update"] = StreamingYield:Connect("Update",RunService.Heartbeat)
-		self.Connections["Join"] = StreamingYield:Connect("PlayerAdded",Players.PlayerAdded)
-		self.Connections["Leave"] = StreamingYield:Connect("PlayerRemoving",Players.PlayerRemoving)
+		self.Connections["Update"] = StreamingQueue:Connect("Update",RunService.Heartbeat)
+		self.Connections["Join"] = StreamingQueue:Connect("PlayerAdded",Players.PlayerAdded)
+		self.Connections["Leave"] = StreamingQueue:Connect("PlayerRemoving",Players.PlayerRemoving)
 	end
 end
 
-return StreamingYield
+return StreamingQueue
